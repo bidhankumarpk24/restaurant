@@ -119,6 +119,7 @@ function EmptyState({ icon, title, text }: { icon: ReactNode; title: string; tex
 
 export default function Home() {
   const { user, loading, isAuthenticated, logout } = useAuth();
+  const isStaticDemo = import.meta.env.VITE_STATIC_DEMO === "true";
   const [{ menu, orders }, setData] = useState<StoreData>(() => loadData());
   const [section, setSection] = useState<Section>("dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -129,7 +130,7 @@ export default function Home() {
   const [orderModal, setOrderModal] = useState(false);
   const [billOrder, setBillOrder] = useState<Order | null>(null);
 
-  const displayName = user?.name?.trim() || user?.email?.split("@")[0] || "User";
+  const displayName = isStaticDemo ? "Demo Manager" : user?.name?.trim() || user?.email?.split("@")[0] || "User";
   const displayEmail = user?.email || "Signed in with Manus";
 
   useEffect(() => {
@@ -179,8 +180,8 @@ export default function Home() {
   const filteredMenu = menu.filter((item) => item.name.toLowerCase().includes(menuSearch.toLowerCase()) || item.category.toLowerCase().includes(menuSearch.toLowerCase()));
   const filteredOrders = orders.filter((order) => (orderFilter === "All" || order.status === orderFilter) && `${order.number} ${order.customer} ${order.table}`.toLowerCase().includes(orderSearch.toLowerCase()));
 
-  if (loading) return <AuthLoadingScreen />;
-  if (!isAuthenticated) return <LoginScreen />;
+  if (!isStaticDemo && loading) return <AuthLoadingScreen />;
+  if (!isStaticDemo && !isAuthenticated) return <LoginScreen />;
 
   return (
     <div className="app-shell">
