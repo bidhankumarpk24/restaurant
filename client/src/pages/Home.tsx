@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { startLogin } from "@/const";
 import {
   BarChart3,
   Bell,
@@ -31,7 +33,7 @@ import {
 import { toast } from "sonner";
 
 const CURRENCY = "৳";
-const STORAGE_KEY = "restaurant-digital-management-v1";
+const STORAGE_KEY = "restaurant-digital-management-demo-v2";
 const today = () => new Date().toDateString();
 
 type Section = "dashboard" | "orders" | "menu" | "tables" | "reports";
@@ -57,6 +59,10 @@ const seedMenu: MenuItem[] = [
   { id: "m3", name: "Citrus Prawn Pasta", category: "Mains", price: 560, available: true },
   { id: "m4", name: "House Lemonade", category: "Drinks", price: 160, available: true },
   { id: "m5", name: "Burnt Basque Cheesecake", category: "Desserts", price: 260, available: false },
+  { id: "m6", name: "Classic Beef Burger", category: "Mains", price: 390, available: true },
+  { id: "m7", name: "Garden Herb Pizza", category: "Mains", price: 480, available: true },
+  { id: "m8", name: "Mango Iced Tea", category: "Drinks", price: 180, available: true },
+  { id: "m9", name: "Crispy Calamari", category: "Starters", price: 340, available: true },
 ];
 
 const navItems: { id: Section; label: string; icon: ReactNode }[] = [
@@ -112,6 +118,7 @@ function EmptyState({ icon, title, text }: { icon: ReactNode; title: string; tex
 }
 
 export default function Home() {
+  const { user, loading, isAuthenticated, logout } = useAuth();
   const [{ menu, orders }, setData] = useState<StoreData>(() => loadData());
   const [section, setSection] = useState<Section>("dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -121,6 +128,9 @@ export default function Home() {
   const [menuModal, setMenuModal] = useState<{ open: boolean; item?: MenuItem }>({ open: false });
   const [orderModal, setOrderModal] = useState(false);
   const [billOrder, setBillOrder] = useState<Order | null>(null);
+
+  const displayName = user?.name?.trim() || user?.email?.split("@")[0] || "User";
+  const displayEmail = user?.email || "Signed in with Manus";
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ menu, orders }));
@@ -169,6 +179,9 @@ export default function Home() {
   const filteredMenu = menu.filter((item) => item.name.toLowerCase().includes(menuSearch.toLowerCase()) || item.category.toLowerCase().includes(menuSearch.toLowerCase()));
   const filteredOrders = orders.filter((order) => (orderFilter === "All" || order.status === orderFilter) && `${order.number} ${order.customer} ${order.table}`.toLowerCase().includes(orderSearch.toLowerCase()));
 
+  if (loading) return <AuthLoadingScreen />;
+  if (!isAuthenticated) return <LoginScreen />;
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileNavOpen ? "sidebar-open" : ""}`}>
@@ -181,7 +194,7 @@ export default function Home() {
       </aside>
       {mobileNavOpen && <button className="mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
       <main className="main-content">
-        <header className="topbar"><button className="mobile-menu-button" onClick={() => setMobileNavOpen(true)}><MenuIcon size={20} /></button><div className="breadcrumb"><span>Plated</span><span className="breadcrumb-slash">/</span><strong>{navItems.find((item) => item.id === section)?.label}</strong></div><div className="topbar-actions"><div className="open-status"><span className="live-dot" /> Open today <span className="topbar-time">· {new Date().toLocaleDateString("en-BD", { weekday: "short", day: "numeric", month: "short" })}</span></div><button className="icon-button" onClick={() => toast.info(pendingOrders.length ? `${pendingOrders.length} active orders need attention.` : "You're all caught up.")} aria-label="Notifications"><Bell size={18} />{pendingOrders.length > 0 && <span className="notification-dot" />}</button><div className="user-avatar">{getInitials("Maya Chen")}</div></div></header>
+        <header className="topbar"><button className="mobile-menu-button" onClick={() => setMobileNavOpen(true)}><MenuIcon size={20} /></button><div className="breadcrumb"><span>Plated</span><span className="breadcrumb-slash">/</span><strong>{navItems.find((item) => item.id === section)?.label}</strong></div><div className="topbar-actions"><div className="open-status"><span className="live-dot" /> Open today <span className="topbar-time">· {new Date().toLocaleDateString("en-BD", { weekday: "short", day: "numeric", month: "short" })}</span></div><button className="icon-button" onClick={() => toast.info(pendingOrders.length ? `${pendingOrders.length} active orders need attention.` : "You're all caught up.")} aria-label="Notifications"><Bell size={18} />{pendingOrders.length > 0 && <span className="notification-dot" />}</button><button className="account-chip" onClick={() => { void logout().then(() => toast.success("Signed out of Plated")).catch(() => toast.error("Could not sign out. Please try again.")); }} title={`Sign out ${displayEmail}`}><span className="user-avatar">{getInitials(displayName)}</span><span className="account-copy"><strong>{displayName}</strong><small>Sign out</small></span></button></div></header>
         <div className="content-wrap">
           {section === "dashboard" && <DashboardSection orders={orders} todayOrders={todayOrders} pendingOrders={pendingOrders} completedOrders={completedOrders} todaySales={todaySales} onNavigate={navigate} onCreateOrder={() => setOrderModal(true)} onUpdateStatus={updateOrderStatus} onBill={setBillOrder} />}
           {section === "orders" && <OrdersSection orders={filteredOrders} search={orderSearch} filter={orderFilter} onSearch={setOrderSearch} onFilter={setOrderFilter} onCreateOrder={() => setOrderModal(true)} onUpdateStatus={updateOrderStatus} onBill={setBillOrder} />}
@@ -196,6 +209,14 @@ export default function Home() {
       <div className="toast-host"><div id="sonner" /></div>
     </div>
   );
+}
+
+function AuthLoadingScreen() {
+  return <div className="auth-screen"><div className="auth-card auth-loading"><div className="brand-mark"><Utensils size={19} /></div><div className="auth-spinner" /><p>Preparing your restaurant workspace…</p></div></div>;
+}
+
+function LoginScreen() {
+  return <div className="auth-screen"><div className="auth-art"><div className="auth-art-glow" /><div className="auth-art-content"><div className="brand-lockup"><div className="brand-mark"><Utensils size={19} /></div><div><div className="brand-name">Plated</div><div className="brand-subtitle">Restaurant OS</div></div></div><div className="auth-quote"><span>“</span><p>Make every service feel considered.</p><small>One calm workspace for the whole room.</small></div><div className="auth-art-footer"><span className="live-dot" /> Simple, local restaurant operations</div></div></div><div className="auth-card"><div className="auth-card-kicker">Welcome to Plated</div><h1>Run the room<br /><em>with clarity.</em></h1><p className="auth-description">Sign in to manage your menu, orders, tables, bills, and daily reports.</p><button className="primary-button auth-login-button" onClick={() => startLogin()}><span className="login-icon"><Users size={16} /></span> Sign in to continue <span className="login-arrow">→</span></button><div className="auth-demo-note"><Sparkles size={15} /><span>Demo menu included<br /><small>No payment gateway or extra setup required.</small></span></div><p className="auth-footnote">Authentication is handled securely by Manus OAuth.</p></div></div>;
 }
 
 function DashboardSection({ orders, todayOrders, pendingOrders, completedOrders, todaySales, onNavigate, onCreateOrder, onUpdateStatus, onBill }: { orders: Order[]; todayOrders: Order[]; pendingOrders: Order[]; completedOrders: Order[]; todaySales: number; onNavigate: (section: Section) => void; onCreateOrder: () => void; onUpdateStatus: (id: string, status: OrderStatus) => void; onBill: (order: Order) => void }) {
